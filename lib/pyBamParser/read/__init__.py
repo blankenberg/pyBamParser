@@ -252,6 +252,9 @@ class BAMRead( object ):
         #fix
         return self._cigar
     
+    def is_seq_reverse_complement( self ):
+        return self.get_flag() & 0x0010 == 0x0010
+    
     def get_read_group( self ):
         for tag, val_type, value in self._aux_data:
             if tag == 'RG':
