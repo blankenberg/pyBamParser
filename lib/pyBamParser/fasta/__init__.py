@@ -1,5 +1,6 @@
 #Dan Blankenberg
 import os
+import sys
 
 from ..util import StringIO
 from ..util.odict import odict
@@ -73,14 +74,26 @@ class IndexedReferenceSequences( object ):
                     if data.strip():
                         raise Exception( "Unexpected characters found in FASTA at position %s: %s" % ( self._fh.tell() - len( data ), data ) )
             self._fh.seek( start_offset )
-    def get_sequence_by_position( self, sequence_name, position, length=1, unknown_sequence_character=UNKNOWN_SEQUENCE_CHAR ):
+    def get_sequence_by_position( self, sequence_name, position, length=1, unknown_sequence_character=UNKNOWN_SEQUENCE_CHAR, die_on_error=True ):
         if self._index and sequence_name in self._index:
-            assert position + length <= self._index[ sequence_name ]['len'], 'Requested position (%i) and length (%i) is greater than reference sequence length (%i) for "%s".' % ( position, length, self._index[ sequence_name ]['len'], sequence_name )
+            end_position = position + length
+            if  end_position > self._index[ sequence_name ]['len']:
+                if die_on_error:
+                    raise ValueError( 'Requested position (%i) and length (%i) is greater than reference sequence length (%i) for "%s".' % ( position, length, self._index[ sequence_name ]['len'], sequence_name ) )
+                else:
+                    sys.stderr.write( 'Requested position (%i) and length (%i) is greater than reference sequence length (%i) for "%s".\n' % ( position, length, self._index[ sequence_name ]['len'], sequence_name ) )
+            total_length = length
+            length = max( 0, self._index[ sequence_name ]['len'] - end_position ) 
             self._fh.seek( self._index[ sequence_name ]['offset'] + ( ( position / self._index[ sequence_name ]['line_blen'] ) * self._index[ sequence_name ]['line_len'] ) + ( position % self._index[ sequence_name ]['line_blen'] ) )
             rval = ''
             while len( rval ) < length:
-                rval += "".join( self._fh.read( length - len( rval ) ).split() )#remove any white spaces
+                data = self._fh.read( length - len( rval ) )
+                if not data:
+                    break
+                rval += "".join( data.split() )#remove any white spaces
                 #TODO: fix to remove line numbers etc
+            if len( rval ) < total_length:
+                rval += unknown_sequence_character * ( total_length - len( rval ) )
             return self._sequence_filter( rval )
         return unknown_sequence_character * length #TODO: make this configurable to raise an error
     def get_sequence_size_by_name( self, name ):
