@@ -75,15 +75,23 @@ class IndexedReferenceSequences( object ):
                         raise Exception( "Unexpected characters found in FASTA at position %s: %s" % ( self._fh.tell() - len( data ), data ) )
             self._fh.seek( start_offset )
     def get_sequence_by_position( self, sequence_name, position, length=1, unknown_sequence_character=UNKNOWN_SEQUENCE_CHAR, die_on_error=True ):
+        assert length > 0, "You must provide a positive length."
         if self._index and sequence_name in self._index:
+            if position > self._index[ sequence_name ]['len']:
+                if die_on_error:
+                    raise ValueError( 'Requested position (%i) is greater than reference sequence length (%i) for "%s".' % ( position, self._index[ sequence_name ]['len'], sequence_name ) )
+                else:
+                    sys.stderr.write( 'Requested position (%i) is greater than reference sequence length (%i) for "%s".' % ( position, self._index[ sequence_name ]['len'], sequence_name ) )
+                position = self._index[ sequence_name ]['len'] - 1
+            total_length = length
             end_position = position + length
             if  end_position > self._index[ sequence_name ]['len']:
                 if die_on_error:
                     raise ValueError( 'Requested position (%i) and length (%i) is greater than reference sequence length (%i) for "%s".' % ( position, length, self._index[ sequence_name ]['len'], sequence_name ) )
                 else:
                     sys.stderr.write( 'Requested position (%i) and length (%i) is greater than reference sequence length (%i) for "%s".\n' % ( position, length, self._index[ sequence_name ]['len'], sequence_name ) )
-            total_length = length
-            length = max( 0, self._index[ sequence_name ]['len'] - end_position ) 
+                end_position = self._index[ sequence_name ]['len']
+            length = end_position - position 
             self._fh.seek( self._index[ sequence_name ]['offset'] + ( ( position / self._index[ sequence_name ]['line_blen'] ) * self._index[ sequence_name ]['line_len'] ) + ( position % self._index[ sequence_name ]['line_blen'] ) )
             rval = ''
             while len( rval ) < length:
