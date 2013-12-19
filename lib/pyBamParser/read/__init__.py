@@ -178,7 +178,7 @@ class BAMRead( object ):
             elif cigar_op == 4: #S soft clipping (clipped sequences present in SEQ)
                 #print >>sys.stderr, 'passing cigar_op soft clipping', cigar_op, cigar_size
                 #print >>sys.stderr, self.to_sam()
-                position_offset += cigar_size
+                pass
             elif cigar_op == 5: #H hard clipping (clipped sequences NOT present in SEQ)
                 #print >>sys.stderr, 'passing cigar_op hard clipping', cigar_op, cigar_size
                 #print >>sys.stderr, self.to_sam()
