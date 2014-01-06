@@ -159,6 +159,59 @@ class BAMRead( object ):
         return self._pos + one_based
     def _get_bam_pos( self ):
         return pack_int32( self.get_position( False ) )
+
+    def indel_at( self, position, check_insertions=True, check_deletions=True, one_based=True ):
+        """Does the read contain an indel at the given position?
+        Return True if the read contains an insertion at the given position
+        (position must be the base before the insertion event) or if the read
+        contains a deletion where the base at position is deleted. Return False
+        otherwise."""
+        (insertions, deletions) = self.get_indels( one_based=one_based )
+        if check_insertions:
+            for insertion in insertions:
+                if insertion[0] == position:
+                    return True
+        if check_deletions:
+            for deletion in deletions:
+                if deletion[0] < position < deletion[0] + deletion[1] + 1:
+                    return True
+        return False
+
+    def get_indels( self, one_based=True ):
+        """Return a data structure containing all indels in the read.
+        Returns the tuple (insertions, deletions)
+        insertions = [(pos1,ins1), (pos2,ins2)]
+        posN = start position (preceding base, VCF-style)
+        insN = length of inserted sequence (not including preceding base)
+        deletions = [(pos1,del1), (pos2,del2)]
+        posN = start position (preceding base, VCF-style)
+        delN = length of deleted sequence (not including preceding base)
+        """
+        cigar = self.get_cigar() #CIGAR_OP = list( 'MIDNSHP=X' )
+        insertions = []
+        deletions = []
+        position_offset = 0
+        position_start = self.get_position( one_based=one_based )
+        while cigar:
+            cigar_size, cigar_op = cigar.pop( 0 )
+            if cigar_op in [ 0, 7, 8 ]: #M alignment match (can be a sequence match or mismatch); = sequence match; x sequence mismatch
+                position_offset += cigar_size
+            elif cigar_op == 1: #I insertion
+                insertions.append((position_start + position_offset - 1, cigar_size))
+            elif cigar_op == 2: #D deletion from the reference
+                deletions.append((position_start + position_offset - 1, cigar_size))
+                position_offset += cigar_size
+            elif cigar_op == 3: #N skipped region from the reference
+                position_offset += cigar_size
+            elif cigar_op == 4: #S soft clipping (clipped sequences present in SEQ)
+                pass
+            elif cigar_op == 5: #H hard clipping (clipped sequences NOT present in SEQ)
+                position_offset += cigar_size
+            elif cigar_op == 6: #P padding (silent deletion from padded reference)
+                pass
+            else: #unknown cigar_op
+                print >>sys.stderr, 'unknown cigar_op', cigar_op, cigar_size
+        return (insertions, deletions)
     
     def get_end_position( self, one_based=True ):
         cigar = self.get_cigar() #CIGAR_OP = list( 'MIDNSHP=X' )
