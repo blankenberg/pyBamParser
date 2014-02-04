@@ -120,7 +120,6 @@ class Reader( object ):
             self.seek( offset )
             return True
         else:
-            print 'jump failed', seq_name, start, next
             if next:
                 return None
             else:
