@@ -22,11 +22,15 @@ CRC_PYTHON_COMPATIBILITY = 0xffffffff
 MTIME_XFL_OS_XLEN_SI1_SI2_SLEN_BSIZE_UNPACKER = struct.Struct( "<IBBHBBHH" ).unpack
 
 class Reader( object ):
+    
     def __init__( self, filename ):
         self.filename, self.fh = get_filename_and_open( filename, mode='rb' )
     
     def seek( self, offset ):
         return self.fh.seek( offset )
+    
+    def tell( self ):
+        return self.fh.tell()
     
     def next( self ):
         magic = self.fh.read( 4 )
@@ -48,6 +52,7 @@ class Reader( object ):
         return data
 
 class Writer( object ):
+    
     def __init__( self, filename, compress_level=6 ):
         self._filename, self._fh = get_filename_and_open( filename, mode='wb' )
         self._compress_level = compress_level
@@ -55,8 +60,10 @@ class Writer( object ):
         self._compressor = self._new_compressor()
         self._fh_is_open = True
         self.get_new_compressor = self._compressor.copy #supposedly faster than creating a new one? But need to test
+    
     def _new_compressor( self ):
         return zlib.compressobj( self._compress_level, zlib.DEFLATED, WBITS, zlib.DEF_MEM_LEVEL, 0 )
+    
     def _write_buffer( self, block_size=None ):
         if not block_size:
             block_size = BGZF_MAX_BLOCK_SIZE

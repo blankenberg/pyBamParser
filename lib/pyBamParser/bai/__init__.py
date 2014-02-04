@@ -5,8 +5,11 @@ from ..util.odict import odict
 from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack_int16, unpack_int16, pack_uint16, unpack_uint16, pack_int32, unpack_int32, pack_uint32, unpack_uint32, pack_int64, unpack_int64, pack_uint64, unpack_uint64
 
 BAI_MAGIC = 'BAI\x01'
+BAI_MAX_BINS = 37450 #(((1<<18)-1)/7) + 1 ; (8**6-1)/7+1
+BAI_BINS = [None] * BAI_MAX_BINS
 
 class Reader( object ):
+    
     def __init__( self, filename, bam_reader ):
         self._filename = filename
         self._bam_reader = bam_reader
@@ -49,7 +52,6 @@ class Reader( object ):
             extra = self._fh.read()
             if extra:
                 print >>sys.stderr, "BAM Index appears to be malformed: %s." % ( repr( extra ) )
-    
     def __nonzero__( self ):
         return self._nonzero 
     
@@ -82,7 +84,6 @@ class Reader( object ):
                         break
                     if linear_offset is not None:
                         break
-        
         bin_list = self.reg2bins( start, end )
         
         offsets = []
@@ -108,6 +109,7 @@ class Reader( object ):
             self._bam_reader.seek_virtual( offsets[ offset_index ] )
             bam_read = self._bam_reader.next()
             if bam_read.get_end_position( one_based = False ) > start:
+            #if bam_read.get_reference_id() == seq_id and bam_read.get_end_position( one_based = False ) > start:
                 len_off = offset_index
             else:
                 len_off = len_off - offset_index - 1
@@ -121,14 +123,12 @@ class Reader( object ):
     
     def reg2bins( self, beg, end ):
         #calculate the list of bins that may overlap with region [beg,end) (zero-based)
-        #Adapted from SAMTools spec psuedo code
         bins = [0]
         if beg >= end:
             return bins
-        
         for i in range( 1 + ( beg >> 26 ), 1 + ( end >> 26  ) ):
             bins.append( i )
-                
+        
         for i in range( 9 + ( beg >> 23 ), 9 + ( end >> 23 ) ):
             bins.append( i )
         
@@ -140,12 +140,10 @@ class Reader( object ):
         
         for i in range( 4681 + ( beg >> 14 ), 4681 + ( end >> 14 ) ):
             bins.append( i )
-        
         return bins
     
     def reg2bin( self, beg, end ):
         #calculate bin given an alignment covering [beg,end) (zero-based, half-close-half-open)
-        #Adapted from SAMTools spec psuedo code
         end -= 1#end
         if (beg>>14 == end>>14):
             return ((1<<15)-1)/7 + (beg>>14)
@@ -158,3 +156,44 @@ class Reader( object ):
         if (beg>>26 == end>>26):
             return ((1<<3)-1)/7 + (beg>>26)
         return 0
+    
+    def xreg2bins(self, beg, end, bin_list ):
+        #calculate the list of bins that may overlap with region [beg,end) (zero-based)
+        #uint16_t list[MAX_BIN]
+        i = 0
+        if beg >= end:
+            return 0
+        end -= 1
+        
+        bin_list[i] = 0
+        i += 1
+        k = 1 + ( beg>>26 )
+        while k <= 1 + ( end>>26 ):
+            bin_list[ i ] = k
+            i += 1
+            k += 1 #check: k before or after?
+            
+        k = 9 + ( beg>>23 )
+        while k <= 9 + ( end>>23 ):
+            bin_list[ i ] = k
+            i += 1
+            k += 1
+            
+        k = 73 + ( beg>>20 )
+        while k <= 73 + ( end>>20 ):
+            bin_list[ i ] = k
+            i += 1
+            k += 1
+            
+        k = 585 + ( beg>>17 )
+        while k <= 585 + ( end>>17 ):
+            bin_list[ i ] = k
+            i += 1
+            k += 1
+        
+        k = 4681 + ( beg>>14 )
+        while k <= 4681 + ( end>>14 ):
+            bin_list[ i ] = k
+            i += 1
+            k += 1
+        return i;

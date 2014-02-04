@@ -6,14 +6,19 @@ from ..util import StringIO
 from ..util.odict import odict
 
 class IndexedReferenceSequences( object ):
+    
     UNKNOWN_SEQUENCE_CHAR = "N"
     FAI_FIELDS = [ 'name', 'len', 'offset', 'line_blen', 'line_len' ]
     FAI_TYPE_MAP = [ str, int, int, int, int ]
     FIELD_LEN = len( FAI_FIELDS )
     DEFAULT_SEQUENCE_LENGTH = 255000000
-    def __init__( self, filename, index_filename=None, sequence_filter=None ):
+    
+    def __init__( self, filename, index_filename=None, sequence_filter=None, default_sequence_length=None ):
         self._filename = filename
         self._sequence_filter = sequence_filter or str
+        if default_sequence_length is None:
+            default_sequence_length = self.DEFAULT_SEQUENCE_LENGTH
+        self._default_sequence_length = default_sequence_length
         if filename:
             self._fh = open( filename )
         else:
@@ -27,6 +32,7 @@ class IndexedReferenceSequences( object ):
             self._parse_index()
         else:
             self._create_index_dictionary()
+    
     def _parse_index( self ):
         self._index = odict()
         for line in open( self._index_filename ):
@@ -36,6 +42,7 @@ class IndexedReferenceSequences( object ):
             info = dict( ( x[0], x[1]( x[2] ) ) for x in zip( self.FAI_FIELDS, self.FAI_TYPE_MAP, fields ) )
             info['name'] = info['name'].split()[0] #remove extended id, only use before first whitespace
             self._index[ info['name'] ] = info
+    
     def _create_index_dictionary( self ):
         self._index = odict()
         if self._filename and os.path.exists( self._filename ):
@@ -74,6 +81,7 @@ class IndexedReferenceSequences( object ):
                     if data.strip():
                         raise Exception( "Unexpected characters found in FASTA at position %s: %s" % ( self._fh.tell() - len( data ), data ) )
             self._fh.seek( start_offset )
+    
     def get_sequence_by_position( self, sequence_name, position, length=1, unknown_sequence_character=UNKNOWN_SEQUENCE_CHAR, die_on_error=True ):
         assert length > 0, "You must provide a positive length."
         if self._index and sequence_name in self._index:
@@ -104,9 +112,26 @@ class IndexedReferenceSequences( object ):
                 rval += unknown_sequence_character * ( total_length - len( rval ) )
             return self._sequence_filter( rval )
         return unknown_sequence_character * length #TODO: make this configurable to raise an error
+    
     def get_sequence_size_by_name( self, name ):
         if name in self._index:
             return self._index[ name ]['len']
-        return self.DEFAULT_SEQUENCE_LENGTH
+        return self._default_sequence_length
+    
     def get_sequence_names( self ):
         return self._index.keys()
+    
+    def sort_region_list( self, region_list ):
+        region_list = sorted( region_list ) #make copy and sort positions within seq names
+        rval = []
+        for name in self.get_sequence_names():
+            if not region_list:
+                break
+            remove = []
+            for i in xrange( len( region_list ) ):
+                if region_list[i][0] == name:
+                    rval.append( region_list[i] )
+                    remove.append( i )
+            for i in reversed( remove ):
+                del region_list[i]
+        return rval

@@ -45,6 +45,9 @@ class Reader( object ):
         self._buffer = '' #reset buffer on seek
         return self._bgzf_reader.seek( offset )
     
+    def tell( self ):
+        return self._bgzf_reader.tell() - len( self._buffer )
+    
     def seek_virtual( self, offset_tuple ):
         file_offset, block_offset = offset_tuple
         self.seek( file_offset )
@@ -102,6 +105,27 @@ class Reader( object ):
                     rval[rec_code].append( attribs )
         return rval
     
+    def jump( self, seq_name, start, next=True ):
+        assert self._bam_index, Exception( "You must provide a valid BAM index in order to use the jump.")
+        if self._bam_index.jump_to_region( seq_name, start, start+1 ):
+            offset = self.tell()
+            read = self.next()
+            while True:
+                if read.get_end_position() >= start:
+                    break
+                offset = self.tell()
+                read = self.next()
+            if next:
+                return read #self.next()
+            self.seek( offset )
+            return True
+        else:
+            print 'jump failed', seq_name, start, next
+            if next:
+                return None
+            else:
+                return False
+    
     def get_sam_header_text( self ):
         header_dict = self.get_sam_header_dict()
         if '@SQ' not in header_dict:
@@ -132,6 +156,7 @@ class Reader( object ):
     
     
 class Writer( object ):
+    
     def __init__( self, filename, headers=None, references=None ):
         self._writer = BGZFWriter( filename )
         self._headers = headers or ''
@@ -142,6 +167,7 @@ class Writer( object ):
         self._writer.write( bam_header )
         self._writer.flush() #bam header will have its own bgzf blocks, increases speed for replacing header later
         self._alignment_start_offset = self._writer._fh.tell() #alignment blocks start here, make it easy to replace header
+    
     def write( self, read ):
         if isinstance( read, BAMRead ):
             self._writer.write( read.get_bam_data() )
