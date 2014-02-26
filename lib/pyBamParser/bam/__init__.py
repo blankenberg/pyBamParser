@@ -41,18 +41,10 @@ class Reader( object ):
         self._buffer = self._buffer[ size: ]
         return data
     
-    def seek( self, offset ):
-        self._buffer = '' #reset buffer on seek
-        return self._bgzf_reader.seek( offset )
-    
-    def tell( self ):
-        return self._bgzf_reader.tell() - len( self._buffer )
-    
     def seek_virtual( self, offset_tuple ):
         file_offset, block_offset = offset_tuple
-        self.seek( file_offset )
-        if block_offset:
-            self.read( block_offset ) #throw away this data
+        self._bgzf_reader.seek( file_offset )
+        self._buffer = self._bgzf_reader.next()[block_offset:]
     
     def next( self ):
         block_size = unpack_int32( self.read( 4 ) )[ 0 ]
@@ -107,17 +99,26 @@ class Reader( object ):
     
     def jump( self, seq_name, start, next=True ):
         assert self._bam_index, Exception( "You must provide a valid BAM index in order to use the jump.")
-        if self._bam_index.jump_to_region( seq_name, start, start+1 ):
-            offset = self.tell()
+        if isinstance( seq_name, basestring ):
+            seq_id = self.get_reference_id_by_name( seq_name )
+        else:
+            seq_id = seq_name  
+        if self._bam_index.jump_to_region( seq_id, start, start+1 ):
+            offset = self._bgzf_reader.tell()
+            buffer = self._buffer
             read = self.next()
-            while True:
-                if read.get_end_position() >= start:
+            read_ref_id = read.get_reference_id()
+            while read_ref_id <= seq_id:
+                if read.get_end_position( one_based=False ) > start and read_ref_id == seq_id:
                     break
-                offset = self.tell()
+                offset = self._bgzf_reader.tell()
+                buffer = self._buffer
                 read = self.next()
+                read_ref_id = read.get_reference_id()
             if next:
-                return read #self.next()
-            self.seek( offset )
+                return read
+            self._bgzf_reader.seek( offset )
+            self._buffer = buffer
             return True
         else:
             if next:

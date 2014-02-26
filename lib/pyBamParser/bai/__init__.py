@@ -39,7 +39,8 @@ class Reader( object ):
                 intv = []
                 for l in range( n_intv ):
                     offset = unpack_uint64( self._fh.read( 8 ) )[0]
-                    intv.append( ( offset >> 16, offset & 0xFFFF ) )
+                    if offset: #only append non-zero offsets
+                        intv.append( ( offset >> 16, offset & 0xFFFF ) )
                 self._references.append( { 'bins': bins, 'intv': intv } )
             
             #unaligned count is optional
@@ -103,13 +104,13 @@ class Reader( object ):
         
         offsets = sorted( offsets ) #do we need to sort?
         
+        #FIXME: Need to optimize this
         len_off = len( offsets )
         while len_off > 0:
             offset_index = len_off / 2
             self._bam_reader.seek_virtual( offsets[ offset_index ] )
             bam_read = self._bam_reader.next()
-            if bam_read.get_end_position( one_based = False ) > start:
-            #if bam_read.get_reference_id() == seq_id and bam_read.get_end_position( one_based = False ) > start:
+            if bam_read.get_reference_id() == seq_id and bam_read.get_end_position( one_based = False ) > start:
                 len_off = offset_index
             else:
                 len_off = len_off - offset_index - 1
