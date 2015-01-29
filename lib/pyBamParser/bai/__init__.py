@@ -24,15 +24,19 @@ class Reader( object ):
             self._references = []
             for i in range( self._n_ref ):
                 bins = odict()#do we care about order?
+                raw_bins = {}
                 n_bins = unpack_int32( self._fh.read( 4 ) )[0]
                 for j in range( n_bins ):
                     bin = unpack_uint32( self._fh.read( 4 ) )[0]
                     n_chunk = unpack_int32( self._fh.read( 4 ) )[0]
                     bins[ bin ] = []
+                    raw_bins[ bin ] = []
                     for k in range( n_chunk ):
                         chunk_beg = unpack_uint64( self._fh.read( 8 ) )[0]
+                        raw_bins[ bin ].append( chunk_beg )
                         chunk_beg = ( chunk_beg >> 16, chunk_beg & 0xFFFF )
                         chunk_end = unpack_uint64( self._fh.read( 8 ) )[0]
+                        raw_bins[ bin ].append( chunk_end )
                         chunk_end = ( chunk_end >> 16, chunk_end & 0xFFFF )
                         bins[ bin ].append( ( chunk_beg, chunk_end ) )
                 n_intv = unpack_int32( self._fh.read( 4 ) )[0]
@@ -42,7 +46,14 @@ class Reader( object ):
                     if offset: #only append non-zero offsets
                         intv.append( ( offset >> 16, offset & 0xFFFF ) )
                 self._references.append( { 'bins': bins, 'intv': intv } )
-            
+                # determine idxstats
+                idxstats = raw_bins.get( BAI_MAX_BINS, [] )
+                idxstats2 = bins.get( BAI_MAX_BINS, [] )
+                if len( idxstats ) == 4:
+                    idxstats = { 'unmapped_beg': idxstats2[0][0], 'unmapped_end': idxstats2[0][1], 'n_mapped': idxstats[2], 'n_unmapped': idxstats[3] }
+                else:
+                    idxstats = { 'unmapped_beg': None, 'unmapped_end': None, 'n_mapped': None, 'n_unmapped': None }
+                self._references[-1].update( idxstats )
             #unaligned count is optional
             unaligned_count = self._fh.read( 8 )
             if unaligned_count:
