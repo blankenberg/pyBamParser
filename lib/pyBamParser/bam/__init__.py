@@ -11,6 +11,8 @@ BAM_MAGIC = 'BAM\x01'
 
 SAM_HEADER_NON_TAB_RECORDS = [ '@CO' ]
 SAM_READ_GROUP_RECORD_CODE = '@RG'
+SAM_READ_GROUP_ID_STR = 'ID'
+SAM_READ_GROUP_SAMPLE_STR = 'SM'
 SAM_NO_READ_GROUP_NAME = '__NONE__'
 
 class Reader( object ):
@@ -18,6 +20,7 @@ class Reader( object ):
         self._bgzf_reader = BGZFReader( filename )
         self._references_list = []
         self._buffer = self._bgzf_reader.next()
+        self._read_groups = None
         magic = self.read( 4 )
         assert magic == BAM_MAGIC, "Bad BAM Magic (%s) in %s" % ( magic, self._filename )
         l_text = unpack_int32( self.read( 4 ) )[0]
@@ -96,6 +99,15 @@ class Reader( object ):
                         attribs[tag] = value
                     rval[rec_code].append( attribs )
         return rval
+    
+    def get_read_groups( self ):
+        if self._read_groups is None:
+            headers = self.get_sam_header_dict()
+            if SAM_READ_GROUP_RECORD_CODE in headers:
+                self._read_groups = [ rg[SAM_READ_GROUP_ID_STR] for rg in headers[SAM_READ_GROUP_RECORD_CODE] ]
+            else:
+                self._read_groups = []
+        return self._read_groups
     
     def jump( self, seq_name, start, next=True ):
         assert self._bam_index, Exception( "You must provide a valid BAM index in order to use the jump.")
