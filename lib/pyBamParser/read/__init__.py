@@ -53,6 +53,7 @@ TAG_TYPE_TO_SAM_TYPE = {
 
 BAM_READ_BEGIN_UNPACKER = struct.Struct( "<iiIIiiii" ).unpack
 READ_GROUP_RECORD_TAG = 'RG'
+CIGAR_RECORD_TAG = 'CG'
 
 SEQ_UNPACKERS = {} #cache seq unpackers for reuse
 QUAL_UNPACKERS = {}
@@ -75,7 +76,7 @@ class BAMRead( object ):
         self._mapq = self._bin_mq_nl >> 8 & 0xff
         self._l_read_name = self._bin_mq_nl & 0xff
         self._flag = self._flag_nc >> 16
-        self._n_cigar_op = self._flag_nc & 0xff
+        self._n_cigar_op = self._flag_nc & 0xffff
         
         self.__data = data
         self.__not_parsed_1 = True
@@ -92,6 +93,7 @@ class BAMRead( object ):
         self.__read_group_parsed = False
         self.__reference_name = None
         self.__reference = None
+        self.__ref_seq_len_alignment = None
 
     def __parse_block_1( self ):
         if self.__not_parsed_1:
@@ -292,7 +294,7 @@ class BAMRead( object ):
         if self.__zero_based_end_position is None:
             position_offset = 0
             self.__parse_block_2()
-            for cigar_size, cigar_op in self._cigar_list:
+            for cigar_size, cigar_op in self.get_cigar():
                 if cigar_op in [ 0, 7, 8 ]: #M alignment match (can be a sequence match or mismatch); = sequence match; x sequence mismatch
                     position_offset += cigar_size
                 elif cigar_op == 1: #insertion
@@ -332,10 +334,24 @@ class BAMRead( object ):
     
     def get_cigar( self ):
         self.__parse_block_2()
+        #check for num cigar ops > 65535, with cigar string stored as CG tag
+        if self._n_cigar_op == 2 and self._cigar_list[0] == ( self._l_seq, 4 ) and self._cigar_list[1][1] == 3:
+            self.__parse_block_5()
+            for i, ( tag, val_type, value ) in enumerate( self._aux_data ):
+                if tag == CIGAR_RECORD_TAG:
+                    self.__ref_seq_len_alignment = self._cigar_list[1][0]
+                    #replace old cigar op counts and list
+                    self._n_cigar_op = len( value )
+                    self._cigar_list = []
+                    for cigar in value:
+                        op_len = cigar >> 4
+                        op = cigar & 0x07
+                        self._cigar_list.append( ( op_len, op ) )
+                    break
         return self._cigar_list[:]
     def get_sam_cigar( self ):
         self.__parse_block_2()
-        return "".join( "%s%s" % ( l, CIGAR_OP[o] ) for l, o in self._cigar_list )
+        return "".join( "%s%s" % ( l, CIGAR_OP[o] ) for l, o in self.get_cigar() )
     
     def get_t_len( self ):
         return self._t_len
@@ -387,6 +403,8 @@ class BAMRead( object ):
         return self._flag_nc
     
     def _get_bam_n_cigar_op( self ):
+        if self._n_cigar_op > 65535:
+            return struct.pack( "<II", ( self._l_seq<<4|4, self.__ref_seq_len_alignment<<4|3 ) )
         return struct.pack( "<" +"I" * self._n_cigar_op, *self._get_cigar() )
     
     def _get_cigar( self ):
@@ -411,7 +429,8 @@ class BAMRead( object ):
         self.__parse_block_5()
         rval = ''
         for aux in self._aux_data:
-            rval += "\t%s:%s:%s" % ( aux[0], TAG_TYPE_TO_SAM_TYPE[ aux[1] ], ",".join( map( str, aux[2] ) ) )
+            if aux[0] != CIGAR_RECORD_TAG:
+                rval += "\t%s:%s:%s" % ( aux[0], TAG_TYPE_TO_SAM_TYPE[ aux[1] ], ",".join( map( str, aux[2] ) ) )
         return rval.strip( '\t' )
     def _get_bam_aux( self ):
         self.__parse_block_5()
@@ -420,7 +439,7 @@ class BAMRead( object ):
             data += tag
             tag_length = len( value )
             if tag_length > 1:
-                data = '%sB%s' ( data, val_type )
+                data = '%sB%s' % ( data, val_type )
                 data += pack_int32( tag_length )
             else:
                 data += val_type
