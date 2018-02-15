@@ -28,9 +28,12 @@ def main():
             author = "Daniel Blankenberg",
             author_email = "dan.blankenberg@gmail.com",
             description = "Tools for parsing BAM data",
+            license = "GPLv2",
             url = "https://github.com/blankenberg/pyBamParser",
             zip_safe = False,
             dependency_links = [],
+            classifiers=[ "Development Status :: 4 - Beta",
+            "License :: OSI Approved :: GNU General Public License v2 (GPLv2)" ],
             **extra )
 
 if __name__ == "__main__":
