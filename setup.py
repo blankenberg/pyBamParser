@@ -28,7 +28,7 @@ def main():
             author = "Daniel Blankenberg",
             author_email = "dan.blankenberg@gmail.com",
             description = "Tools for parsing BAM data",
-            url = "http://add_URL_HERE",
+            url = "https://github.com/blankenberg/pyBamParser",
             zip_safe = False,
             dependency_links = [],
             **extra )
