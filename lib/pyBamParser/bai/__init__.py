@@ -7,6 +7,7 @@ from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack
 BAI_MAGIC = 'BAI\x01'
 BAI_MAX_BINS = 37450 #(((1<<18)-1)/7) + 1 ; (8**6-1)/7+1
 BAI_BINS = [None] * BAI_MAX_BINS
+BAI_WINDOW_SIZE = 2 ** 14
 
 class Reader( object ):
     
@@ -82,56 +83,24 @@ class Reader( object ):
         
         start, end = self._fix_region( seq_id, start, end )
         seq_bins = self._references[ seq_id ]
-        linear_window = start >> 14 #16kb windows for intv: 1024*16 == 2**14
-        linear_offset = None
-        if linear_window < len( seq_bins['intv'] ):
-            linear_offset = seq_bins['intv'][ linear_window ]
-        else:
-            if seq_bins['intv']:
-                linear_offset = seq_bins['intv'][-1]
-            else:
-                for i in range( seq_id + 1, len( self._references ) ):
-                    for j in self._references[ i ]['intv']:
-                        linear_offset = j
-                        break
-                    if linear_offset is not None:
-                        break
+
+        try:
+            linear = offset = seq_bins['intv'][start / BAI_WINDOW_SIZE ]
+        except Exception:
+            linear = offset = -1
+
         bin_list = self.reg2bins( start, end )
-        
-        offsets = []
         for bin in seq_bins['bins']:
             if bin in bin_list:
-                for left_right in seq_bins['bins'][bin]:
-                    left, right = left_right
-                    if right >= linear_offset:
-                        offsets.append( left )
-                bin_list.remove( bin )
-            if not bin_list:
-                break
-        if not offsets and linear_offset:
-            offsets = [ linear_offset ]
-        if not offsets:
+                for left, right in seq_bins['bins'][bin]:
+                    if right >= linear:
+                        if left < offset:
+                            offset = left
+
+        if offset == -1:
             return False
-        
-        offsets = sorted( offsets ) #do we need to sort?
-        
-        #FIXME: Need to optimize this
-        len_off = len( offsets )
-        while len_off > 0:
-            offset_index = len_off / 2
-            self._bam_reader.seek_virtual( offsets[ offset_index ] )
-            bam_read = self._bam_reader.next()
-            if bam_read.get_reference_id() == seq_id and bam_read.get_end_position( one_based = False ) > start:
-                len_off = offset_index
-            else:
-                len_off = len_off - offset_index - 1
-        
-        if offset_index > 0:
-            offset_index -= 1 #fix for 0-based list
-        
-        self._bam_reader.seek_virtual( offsets[ offset_index ] )
+        self._bam_reader.seek_virtual( offset )
         return True
-        
     
     def reg2bins( self, beg, end ):
         #calculate the list of bins that may overlap with region [beg,end) (zero-based)
@@ -168,44 +137,3 @@ class Reader( object ):
         if (beg>>26 == end>>26):
             return ((1<<3)-1)/7 + (beg>>26)
         return 0
-    
-    def xreg2bins(self, beg, end, bin_list ):
-        #calculate the list of bins that may overlap with region [beg,end) (zero-based)
-        #uint16_t list[MAX_BIN]
-        i = 0
-        if beg >= end:
-            return 0
-        end -= 1
-        
-        bin_list[i] = 0
-        i += 1
-        k = 1 + ( beg>>26 )
-        while k <= 1 + ( end>>26 ):
-            bin_list[ i ] = k
-            i += 1
-            k += 1 #check: k before or after?
-            
-        k = 9 + ( beg>>23 )
-        while k <= 9 + ( end>>23 ):
-            bin_list[ i ] = k
-            i += 1
-            k += 1
-            
-        k = 73 + ( beg>>20 )
-        while k <= 73 + ( end>>20 ):
-            bin_list[ i ] = k
-            i += 1
-            k += 1
-            
-        k = 585 + ( beg>>17 )
-        while k <= 585 + ( end>>17 ):
-            bin_list[ i ] = k
-            i += 1
-            k += 1
-        
-        k = 4681 + ( beg>>14 )
-        while k <= 4681 + ( end>>14 ):
-            bin_list[ i ] = k
-            i += 1
-            k += 1
-        return i;
