@@ -8,7 +8,7 @@ import string
 from ..util import get_filename_and_open
 from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack_int16, unpack_int16, pack_uint16, unpack_uint16, pack_int32, unpack_int32, pack_uint32, unpack_uint32, pack_int64, unpack_int64, pack_uint64, unpack_uint64
 
-MAX_NEG_INT = -sys.maxint
+MAX_NEG_INT = -sys.maxsize
 
 WBITS = -15 #Negative wbits removes zlib header usage. Larger numbers can always work on files that were compressed by smaller numbers, but not vis-versa, so always use the largest available number (15)
 BGZF_MAGIC = '\x1f\x8b\x08\x04'
@@ -32,7 +32,7 @@ class Reader( object ):
     def tell( self ):
         return self.fh.tell()
     
-    def next( self ):
+    def __next__( self ):
         magic = self.fh.read( 4 )
         if magic:
             assert magic == BGZF_MAGIC, "Bad BGZF magic, are you sure this is a BGZF file (%s)?" % ( self.filename )
@@ -40,7 +40,7 @@ class Reader( object ):
             self.fh.seek( -28, 2 )
             eof = self.fh.read( 28 )
             if eof != BGZF_EOF:
-                print >>sys.stderr, 'BGZF EOF marker was not found. Confirm that the BGZF file is not truncated.'
+                print('BGZF EOF marker was not found. Confirm that the BGZF file is not truncated.', file=sys.stderr)
                 raise StopIteration( 'End of file, but BGZF EOF marker was not found. Confirm that the BGZF file is not truncated.' )
             raise StopIteration( 'End of file.' )
         mtime, xfl, OS, xlen, si1, si2, slen, bsize = MTIME_XFL_OS_XLEN_SI1_SI2_SLEN_BSIZE_UNPACKER( self.fh.read( 14 ) )

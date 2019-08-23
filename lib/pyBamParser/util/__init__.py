@@ -2,12 +2,12 @@
 NULL_CHAR = '\x00'
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 def get_filename_and_open( filename, default=None, mode='rb'):
-    if isinstance( filename, basestring ):
+    if isinstance( filename, str ):
         fh = open( filename, mode )
     else:
         fh = filename

@@ -13,8 +13,8 @@ from optparse import OptionParser
 def main():
 
   FUNCTIONS = {
-    'BAMRead.get_indels':BAMRead_get_indels,
-    'BAMRead.indel_at':BAMRead_indel_at,
+    'BAMRead.get_indels': BAMRead_get_indels,
+    'BAMRead.indel_at': BAMRead_indel_at,
   }
 
   OPT_DEFAULTS = {'indels_file':'', 'int':0, 'bool':False}
@@ -52,12 +52,12 @@ Format: One indel per line, 3 tab-separated columns: 1. chrom, 2. coordinate
 
 def BAMRead_get_indels(bam_reader, options):
   for read in bam_reader:
-    print "\t".join([read.get_read_name(),str(read.get_position()),read.get_sam_cigar()])
+    print("\t".join([read.get_read_name(), str(read.get_position()), read.get_sam_cigar()]))
     (insertions, deletions) = read.get_indels()
     if insertions:
-      print "\t"+str(insertions)
+      print("\t"+str(insertions))
     if deletions:
-      print "\t"+str(deletions)
+      print("\t"+str(deletions))
 
 
 def BAMRead_indel_at(bam_reader, options):
@@ -73,7 +73,7 @@ def BAMRead_indel_at(bam_reader, options):
       fields = line.split()
       try:          #  coordinate       I or D
         indels.append((int(fields[1]), fields[2]))
-      except IndexError, ValueError:
+      except IndexError as ValueError:
         fail('Error: Bad format in indels file "'+options.indels_file+'"')
 
   for read in bam_reader:
@@ -81,7 +81,7 @@ def BAMRead_indel_at(bam_reader, options):
     read_pos   = read.get_position()
     read_cigar = read.get_sam_cigar()
     read_end   = read.get_end_position()
-    print "\t".join([read_qname, str(read_pos), read_cigar])
+    print("\t".join([read_qname, str(read_pos), read_cigar]))
     for (indel_pos, indel_type) in indels:
       if read_pos <= indel_pos <= read_end:
         has_indel = read.indel_at(
@@ -89,7 +89,7 @@ def BAMRead_indel_at(bam_reader, options):
           check_insertions=('I' in indel_type),
           check_deletions=('D' in indel_type)
         )
-        print "\t".join([str(indel_pos), indel_type, str(has_indel)])
+        print("\t".join([str(indel_pos), indel_type, str(has_indel)]))
 
 
 def fail(message):

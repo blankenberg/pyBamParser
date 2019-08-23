@@ -64,8 +64,8 @@ class Reader( object ):
             
             extra = self._fh.read()
             if extra:
-                print >>sys.stderr, "BAM Index appears to be malformed: %s." % ( repr( extra ) )
-    def __nonzero__( self ):
+                print("BAM Index appears to be malformed: %s." % ( repr( extra ) ), file=sys.stderr)
+    def __bool__( self ):
         return self._nonzero 
     
     def _fix_region( self, seq_id, start, end ):
@@ -76,7 +76,7 @@ class Reader( object ):
         return start, end
     
     def jump_to_region( self, seq_id, start, end ):
-        if isinstance( seq_id, basestring ):
+        if isinstance( seq_id, str ):
             seq_id = self._bam_reader.get_reference_id_by_name( seq_id )
         if seq_id is None or seq_id < 0 or seq_id >= len( self._references ):
             return False

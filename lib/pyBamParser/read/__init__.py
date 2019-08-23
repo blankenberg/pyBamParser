@@ -151,7 +151,7 @@ class BAMRead( object ):
             if qual_unpacker is None:
                 qual_unpacker = struct.Struct( "<" + "c" * self._l_seq ).unpack
                 QUAL_UNPACKERS[ self._l_seq ] = qual_unpacker
-            self._qual = map( ord, qual_unpacker( self.__data[ self._block_offset: self._new_block_offset ] ) )
+            self._qual = list(map( ord, qual_unpacker( self.__data[ self._block_offset: self._new_block_offset ] ) ))
             if self._qual[0] == BAM_NO_QUAL:
                 self._qual = None
             
@@ -287,7 +287,7 @@ class BAMRead( object ):
             elif cigar_op == 6: #P padding (silent deletion from padded reference)
                 pass
             else: #unknown cigar_op
-                print >>sys.stderr, 'unknown cigar_op', cigar_op, cigar_size
+                print('unknown cigar_op', cigar_op, cigar_size, file=sys.stderr)
         return (insertions, deletions)
     
     def get_end_position( self, one_based=True ):
@@ -319,7 +319,7 @@ class BAMRead( object ):
                     #position_offset += cigar_size
                     pass
                 else: #unknown cigar_op
-                    print >>sys.stderr, 'unknown cigar_op', cigar_op, cigar_size
+                    print('unknown cigar_op', cigar_op, cigar_size, file=sys.stderr)
                     #position_offset += cigar_size
             self.__zero_based_end_position = self._pos + position_offset
         return self.__zero_based_end_position + one_based
@@ -388,7 +388,7 @@ class BAMRead( object ):
     def get_qual_tuple( self ):
         return tuple( self.get_qual_list() )
     def _get_bam_qual( self ):
-        return struct.pack( "<" + "c" * self._l_seq, *map( chr, self.get_qual_tuple() ) )
+        return struct.pack( "<" + "c" * self._l_seq, *list(map( chr, self.get_qual_tuple() )) )
     
     def _get_bam_bin_mq_nl( self ):
         return pack_uint32( self._get_bin_mq_nl() )

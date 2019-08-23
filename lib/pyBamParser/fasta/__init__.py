@@ -119,7 +119,7 @@ class IndexedReferenceSequences( object ):
         return self._default_sequence_length
     
     def get_sequence_names( self ):
-        return self._index.keys()
+        return list(self._index.keys())
     
     def sort_region_list( self, region_list ):
         region_list = sorted( region_list ) #make copy and sort positions within seq names
@@ -131,7 +131,7 @@ class IndexedReferenceSequences( object ):
             if not region_list:
                 break
             remove = []
-            for i in xrange( len( region_list ) ):
+            for i in range( len( region_list ) ):
                 if region_list[i][0] == name:
                     rval.append( region_list[i] )
                     remove.append( i )

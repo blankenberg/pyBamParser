@@ -1,7 +1,7 @@
 import sys
 
 if sys.version_info < (2, 5):
-    print >> sys.stderr, "ERROR: pyBamParser requires python 2.5 or greater"
+    print("ERROR: pyBamParser requires python 2.5 or greater", file=sys.stderr)
     sys.exit()
 
 try:

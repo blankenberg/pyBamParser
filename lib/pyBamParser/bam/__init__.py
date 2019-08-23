@@ -19,7 +19,7 @@ class Reader( object ):
     def __init__( self, filename, index_filename=None ):
         self._bgzf_reader = BGZFReader( filename )
         self._references_list = []
-        self._buffer = self._bgzf_reader.next()
+        self._buffer = next(self._bgzf_reader)
         self._read_groups = None
         magic = self.read( 4 )
         assert magic == BAM_MAGIC, "Bad BAM Magic (%s) in %s" % ( magic, self._filename )
@@ -39,7 +39,7 @@ class Reader( object ):
     
     def read( self, size ):
         while len( self._buffer ) < size:
-            self._buffer += self._bgzf_reader.next()
+            self._buffer += next(self._bgzf_reader)
         data = self._buffer[ 0:size ]
         self._buffer = self._buffer[ size: ]
         return data
@@ -49,7 +49,7 @@ class Reader( object ):
         self._bgzf_reader.seek( file_offset )
         self._buffer = self._bgzf_reader.next()[block_offset:]
     
-    def next( self ):
+    def __next__( self ):
         block_size = unpack_int32( self.read( 4 ) )[ 0 ]
         return BAMRead( self.read( block_size ), self )
     
@@ -111,21 +111,21 @@ class Reader( object ):
     
     def jump( self, seq_name, start, next=True ):
         assert self._bam_index, Exception( "You must provide a valid BAM index in order to use the jump.")
-        if isinstance( seq_name, basestring ):
+        if isinstance( seq_name, str ):
             seq_id = self.get_reference_id_by_name( seq_name )
         else:
             seq_id = seq_name  
         if self._bam_index.jump_to_region( seq_id, start, start+1 ):
             offset = self._bgzf_reader.tell()
             buffer = self._buffer
-            read = self.next()
+            read = next(self)
             read_ref_id = read.get_reference_id()
             while read_ref_id <= seq_id:
                 if read.get_end_position( one_based=False ) > start and read_ref_id == seq_id:
                     break
                 offset = self._bgzf_reader.tell()
                 buffer = self._buffer
-                read = self.next()
+                read = next(self)
                 read_ref_id = read.get_reference_id()
             if next:
                 return read
@@ -153,13 +153,13 @@ class Reader( object ):
                 sn_dict['LN'] = ref_len
                 header_dict[ '@SQ' ].append( sn_dict )
         rval = ''
-        for rec_code, values in header_dict.iteritems():
+        for rec_code, values in header_dict.items():
             for value in values:
                 if rec_code in SAM_HEADER_NON_TAB_RECORDS:
                     str_val = '\t' + value
                 else:
                     str_val = ''
-                    for tag, val in value.iteritems():
+                    for tag, val in value.items():
                         str_val = "%s\t%s:%s" % ( str_val, tag, val )
                 rval = "%s%s%s\n" % ( rval, rec_code, str_val )
         rval = rval.strip( '\n\r' )
