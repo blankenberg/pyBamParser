@@ -1,10 +1,7 @@
 #Dan Blankenberg
-NULL_CHAR = '\x00'
+NULL_CHAR = b'\x00'
 
-try:
-    from io import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 def get_filename_and_open( filename, default=None, mode='rb'):
     if isinstance( filename, str ):

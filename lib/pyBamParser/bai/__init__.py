@@ -4,7 +4,7 @@ import sys
 from ..util.odict import odict
 from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack_int16, unpack_int16, pack_uint16, unpack_uint16, pack_int32, unpack_int32, pack_uint32, unpack_uint32, pack_int64, unpack_int64, pack_uint64, unpack_uint64
 
-BAI_MAGIC = 'BAI\x01'
+BAI_MAGIC = b'BAI\x01'
 BAI_MAX_BINS = 37450 #(((1<<18)-1)/7) + 1 ; (8**6-1)/7+1
 BAI_BINS = [None] * BAI_MAX_BINS
 BAI_WINDOW_SIZE = 2 ** 14
@@ -15,7 +15,7 @@ class Reader( object ):
         self._filename = filename
         self._bam_reader = bam_reader
         try:
-            self._fh = open( filename, 'rb ')
+            self._fh = open( filename, 'rb')
             self._nonzero = True
         except IOError:
             self._nonzero = False
@@ -84,8 +84,9 @@ class Reader( object ):
         start, end = self._fix_region( seq_id, start, end )
         seq_bins = self._references[ seq_id ]
 
+
         try:
-            linear = offset = seq_bins['intv'][start / BAI_WINDOW_SIZE ]
+            linear = offset = seq_bins['intv'][start // BAI_WINDOW_SIZE ]
         except Exception:
             linear = offset = -1
 

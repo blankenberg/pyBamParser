@@ -7,7 +7,7 @@ from ..util import NULL_CHAR
 from ..util.odict import odict
 from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack_int16, unpack_int16, pack_uint16, unpack_uint16, pack_int32, unpack_int32, pack_uint32, unpack_uint32, pack_int64, unpack_int64, pack_uint64, unpack_uint64
 
-BAM_MAGIC = 'BAM\x01'
+BAM_MAGIC = b'BAM\x01'
 
 SAM_HEADER_NON_TAB_RECORDS = [ '@CO' ]
 SAM_READ_GROUP_RECORD_CODE = '@RG'
@@ -24,11 +24,11 @@ class Reader( object ):
         magic = self.read( 4 )
         assert magic == BAM_MAGIC, "Bad BAM Magic (%s) in %s" % ( magic, self._filename )
         l_text = unpack_int32( self.read( 4 ) )[0]
-        self._headers = self.read( l_text ).rstrip( NULL_CHAR )
+        self._headers = self.read( l_text ).rstrip( NULL_CHAR ).decode()
         n_ref = unpack_int32( self.read( 4 ) )[0]
         for i in range( n_ref ):
             l_name = unpack_int32( self.read( 4 ) )[0]
-            name = self.read( l_name ).rstrip( NULL_CHAR )
+            name = self.read( l_name ).rstrip( NULL_CHAR ).decode()
             l_ref = unpack_int32( self.read( 4 ) )[0]
             self._references_list.append( ( name, l_ref ) )
         self._bam_index = BAIReader( index_filename or "%s.bai" % self._filename, self )
@@ -47,7 +47,7 @@ class Reader( object ):
     def seek_virtual( self, offset_tuple ):
         file_offset, block_offset = offset_tuple
         self._bgzf_reader.seek( file_offset )
-        self._buffer = self._bgzf_reader.next()[block_offset:]
+        self._buffer = next(self._bgzf_reader)[block_offset:]
     
     def __next__( self ):
         block_size = unpack_int32( self.read( 4 ) )[ 0 ]
@@ -109,7 +109,7 @@ class Reader( object ):
                 self._read_groups = []
         return self._read_groups
     
-    def jump( self, seq_name, start, next=True ):
+    def jump( self, seq_name, start, fetch_next=True ):
         assert self._bam_index, Exception( "You must provide a valid BAM index in order to use the jump.")
         if isinstance( seq_name, str ):
             seq_id = self.get_reference_id_by_name( seq_name )
@@ -127,7 +127,7 @@ class Reader( object ):
                 buffer = self._buffer
                 read = next(self)
                 read_ref_id = read.get_reference_id()
-            if next:
+            if fetch_next:
                 return read
             self._bgzf_reader.seek( offset )
             self._buffer = buffer

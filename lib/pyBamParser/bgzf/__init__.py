@@ -11,9 +11,9 @@ from ..util.packer import pack_int8, unpack_int8, pack_uint8, unpack_uint8, pack
 MAX_NEG_INT = -sys.maxsize
 
 WBITS = -15 #Negative wbits removes zlib header usage. Larger numbers can always work on files that were compressed by smaller numbers, but not vis-versa, so always use the largest available number (15)
-BGZF_MAGIC = '\x1f\x8b\x08\x04'
-BGZF_WRITE_HEADER = BGZF_MAGIC + '\x00\x00\x00\x00\x00\xff\x06\x00BC\x02\x00'
-BGZF_EOF = BGZF_WRITE_HEADER + '\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+BGZF_MAGIC = b'\x1f\x8b\x08\x04'
+BGZF_WRITE_HEADER = BGZF_MAGIC + b'\x00\x00\x00\x00\x00\xff\x06\x00BC\x02\x00'
+BGZF_EOF = BGZF_WRITE_HEADER + b'\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 BGZF_MAX_BLOCK_SIZE = 2**16
 
 HEADER_BLOCK_SIZE = 25
@@ -32,6 +32,9 @@ class Reader( object ):
     def tell( self ):
         return self.fh.tell()
     
+    def __iter__(self):
+        return self
+
     def __next__( self ):
         magic = self.fh.read( 4 )
         if magic:
@@ -56,7 +59,7 @@ class Writer( object ):
     def __init__( self, filename, compress_level=6 ):
         self._filename, self._fh = get_filename_and_open( filename, mode='wb' )
         self._compress_level = compress_level
-        self._buffer = ''
+        self._buffer = b''
         self._compressor = self._new_compressor()
         self._fh_is_open = True
         self.get_new_compressor = self._compressor.copy #supposedly faster than creating a new one? But need to test
@@ -73,7 +76,7 @@ class Writer( object ):
             len_data = block_size
         else:
             data = self._buffer
-            self._buffer = ''
+            self._buffer = b''
             len_data = len( data )
         compressor = self.get_new_compressor()
         compressed_data = compressor.compress( data ) + compressor.flush()

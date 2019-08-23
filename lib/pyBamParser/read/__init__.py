@@ -99,7 +99,7 @@ class BAMRead( object ):
         if self.__not_parsed_1:
             self.__not_parsed_1 = False
             self._block_offset = 32 + self._l_read_name
-            self._read_name = self.__data[ 32:self._block_offset].rstrip( NULL_CHAR )
+            self._read_name = self.__data[ 32:self._block_offset].rstrip( NULL_CHAR ).decode()
             
     def __parse_block_2( self ):
         if self.__not_parsed_2:
@@ -123,7 +123,7 @@ class BAMRead( object ):
         if self.__not_parsed_3:
             self.__parse_block_2()
             self.__not_parsed_3 = False
-            seq_bin_len = ( self._l_seq + 1 ) / 2
+            seq_bin_len = ( self._l_seq + 1 ) // 2
             self._block_offset = self._new_block_offset
             self._new_block_offset += seq_bin_len
             seq_unpacker = SEQ_UNPACKERS.get( seq_bin_len, None )
@@ -131,7 +131,7 @@ class BAMRead( object ):
                 seq_unpacker = struct.Struct( "<" + "B" * seq_bin_len ).unpack
                 SEQ_UNPACKERS[ seq_bin_len ] = seq_unpacker #cache this unpacker for use later
             self._seq = seq_unpacker( self.__data[ self._block_offset: self._new_block_offset ] )
-            half_seq_len = self._l_seq / 2
+            half_seq_len = self._l_seq // 2
             seq = []
             for i, s in enumerate( self._seq, start=1 ):
                 seq.append( SEQ_4_BIT_TO_SEQ_4[ s ] )
@@ -163,10 +163,10 @@ class BAMRead( object ):
             while self._block_size > self._new_block_offset:
                 self._block_offset = self._new_block_offset
                 self._new_block_offset += 2
-                tag = self.__data[ self._block_offset: self._new_block_offset ]
+                tag = self.__data[ self._block_offset: self._new_block_offset ].decode()
                 self._block_offset = self._new_block_offset
                 self._new_block_offset += 1
-                val_type = self.__data[ self._block_offset: self._new_block_offset ]
+                val_type = self.__data[ self._block_offset: self._new_block_offset ].decode()
                 if val_type in NULL_TERMINATED_TAGS:
                     value = []
                     while True:
@@ -176,13 +176,13 @@ class BAMRead( object ):
                         if val == NULL_CHAR:
                             break
                         else:
-                            value.append( val )
+                            value.append( val.decode() )
                     value = ( "".join( value ), )
                 else:
                     if val_type == 'B':
                         self._block_offset = self._new_block_offset
                         self._new_block_offset += 1
-                        val_type = self.__data[ self._block_offset: self._new_block_offset ]
+                        val_type = self.__data[ self._block_offset: self._new_block_offset ].decode()
                         self._block_offset = self._new_block_offset
                         self._new_block_offset += 4
                         tag_length = unpack_int32( self.__data[ self._block_offset: self._new_block_offset ] )[ 0 ]
@@ -366,7 +366,7 @@ class BAMRead( object ):
         return self.__seq_string
     def _get_bam_seq( self ):
         self.__parse_block_3()
-        return struct.pack( "<" + "B" * (  ( self._l_seq + 1 ) / 2 ), *self._seq )
+        return struct.pack( "<" + "B" * (  ( self._l_seq + 1 ) // 2 ), *self._seq )
     
     def get_l_seq( self ):
         return self._l_seq
